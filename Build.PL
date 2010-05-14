@@ -12,7 +12,7 @@ my $build = Module::Build->new (
     module_name => 'Test::Referenced',
     license     => 'perl',
 
-    dist_abstract => 'Test subroutine output against reference data stored in file(s).',
+    dist_abstract => 'Test against reference data stored in file(s).',
     dist_author   => 'Bartłomiej Syguła <natanael@natanael.krakow.pl>',
 
     # What You must have, and what will do You good.
