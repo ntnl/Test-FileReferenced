@@ -1,0 +1,4 @@
+Build.PL
+lib/Test/FileReferenced.pm
+MANIFEST			This list of files
+t/example.t

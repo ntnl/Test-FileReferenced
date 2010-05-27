@@ -9,7 +9,7 @@ use strict; use warnings;
 use Module::Build;
 my $build = Module::Build->new (
     # Who I am :)
-    module_name => 'Test::Referenced',
+    module_name => 'Test::FileReferenced',
     license     => 'perl',
 
     dist_abstract => 'Test against reference data stored in file(s).',
@@ -19,14 +19,10 @@ my $build = Module::Build->new (
     requires => {
         'perl' => '5.8.0',
 
-        'Test::More'         => '0.94',
-        'Carp::Assert::More' => '1.12',
-        'FindBin'            => '1.47',
-        'YAML::Syck'         => '1.05',
+        'Test::More' => '0.94',
+        'FindBin'    => '1.47',
+        'YAML::Any'  => '0.71',
     },
-#    recommends => {
-#        'Devel::Cover' => '0.64',
-#    },
 
     # Play nice with friends ;)
     create_makefile_pl => 'traditional',

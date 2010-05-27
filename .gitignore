@@ -1,2 +1,8 @@
 .*.swp
 .*.swo
+Build
+MANIFEST.SKIP.bak
+MYMETA.yml
+_build/
+blib/
+
