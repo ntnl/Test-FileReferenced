@@ -21,6 +21,7 @@ our @EXPORT_OK = qw(
 );
 
 use Carp qw( croak );
+use Cwd qw( cwd );
 use English qw( -no_match_vars );
 use FindBin qw( $Bin );
 use Test::More;
@@ -110,7 +111,7 @@ sub is_referenced_ok { # {{{
     # Test name is mandatory, since without it, it's hard to reliably
     # identify reference output in the reference file.
     if (not $test_name) {
-        carp("Test name missing, but it is mandatory!");
+        croak("Test name missing, but it is mandatory!");
     }
 
     if (not $comparator) {
@@ -131,7 +132,7 @@ sub is_referenced_ok { # {{{
 
     # Check if the test name is unique.
     if ($output->{$test_name}) {
-        carp("Test name: '$test_name' is not unique.");
+        croak("Test name: '$test_name' is not unique.");
     }
 
     $output->{$test_name} = $tested_data;
@@ -177,7 +178,7 @@ sub is_referenced_in_file { # {{{
 
     my $status;
     if (not $status = $comparator->($tested_data, $reference_data, $test_name)) {
-        $serializer_dump->($reference_path, $tested_data);
+        $serializer_dump->($output_path, $tested_data);
 
         $failure_count++;
 
@@ -227,7 +228,7 @@ sub at_exit { # {{{
     if ($exited_cleanly) {
         return;
     }
-    
+
     # Ware there any failures?
     if ($failure_count > 0) {
         $serializer_dump->($default_results_filename, $output);
@@ -263,13 +264,10 @@ sub _init_if_you_need { # {{{
     return;
 } # }}}
 
-# WIP
-sub _display_failure_prompt { # {{{
-
-    return;
-} # }}}
-
 sub _clean_up { # {{{
+    if (-f $default_results_filename) {
+        unlink $default_results_filename;
+    }
 
     return;
 }  # }}}
@@ -304,6 +302,25 @@ Each test has it's own key in the file. For the following example test:
 Name for the reference file is based on the tests's filename, with I<.t> replaced with extension native to the used dumper.
 Example: if default serializer (YAML::Syck) is used, F<foo/bar.t> will use F<foo/bar.yaml>.
 
+=cut
+
+sub _load_reference_if_you_need { # {{{
+    if ($reference) {
+        # Reference already loaded or initialized.
+        return $reference;
+    }
+
+    # Is there a reference file?
+    if (not -f $default_reference_filename) {
+        # Nope. Warn the User, but don't make a tragedy of it.
+        diag("No reference file found. All calls to is_referenced_ok WILL fail.");
+
+        return $reference = {};
+    }
+
+    return $reference = $serializer_load->($default_reference_filename);
+} # }}}
+
 =item Custom reference files
 
 Custom reference files are used by C<is_referenced_in_file> function. Each file contains reference data
@@ -320,8 +337,6 @@ for single test case. For the following example test:
 
 =back
 
-=head1 CUSTOM COMPARIZON ROUTINES
-
 =head1 TEST FAILURES
 
 If there are differences between referenced, and actual data, at the end of the test prompt will be printed, similar to:
@@ -333,7 +348,7 @@ If there are differences between referenced, and actual data, at the end of the 
  If the differences ware intended, reference data can be updated by running:
          mv foo-results.yaml foo.yaml
 
-If there is no F<foo.yaml> yes (first test run, for example) then the message will be similar to:
+If there is no F<foo.yaml> yet (first test run, for example) then the message will be similar to:
  
  No reference file found. It'a a good idea to create one from scratch manually.
  To inspect current results run:
@@ -351,23 +366,55 @@ even if - for some reason - the END block does not run.
 
 =cut
 
-sub _load_reference_if_you_need {
-    if ($reference) {
-        # Reference already loaded or initialized.
-        return $reference;
+sub _display_failure_prompt { # {{{
+    if ($ENV{'FILE_REFERENCED_NO_PROMPT'}) {
+        return;
+    }
+    
+    # Try to make the paths a bit more Humar-readable.
+    my $cwd = cwd();
+    
+    $default_reference_filename =~ s{^$cwd/*}{}s;
+    $default_results_filename   =~ s{^$cwd/*}{}s;
+
+    # We basically have two use cases:
+    #   1) reference exist, but there are changes.
+    #   2) reference does not exist at all
+    if (-f $default_reference_filename) {
+        # First major use case: reference exist, but there are changes.
+
+        my @shell_path = split /:/s, $ENV{'PATH'};
+
+        diag("Resulting and reference files differ. To see differences run one of:");
+        diag(sprintf(q{%10s %s %s}, q{diff}, $default_results_filename, $default_reference_filename));
+        foreach my $diff_command (qw( vimdiff gvimdiff kdiff )) {
+            foreach my $path (@shell_path) {
+                if (-x $path . q{/}. $diff_command) {
+                    diag(sprintf(q{%10s %s %s}, $diff_command, $default_results_filename, $default_reference_filename));
+                    last;
+                }
+            }
+        }
+        diag("\n");
+        diag("If the differences ware intended, reference data can be updated by running:");
+        diag(sprintf(q{%10s %s %s}, q{mv}, $default_results_filename, $default_reference_filename));
+    }
+    else {
+        # Second major use case: reference does not exist at all.
+        diag("No reference file found. It'a a good idea to create one from scratch manually.");
+        diag("To inspect current results run:");
+        diag(sprintf(q{%10s %s %s}, "cat", $default_results_filename));
+        diag("\n");
+        diag("If You trust Your test output, You can use it to initialize deference file, by running:");
+        diag(sprintf(q{%10s %s %s}, q{mv}, $default_results_filename, $default_reference_filename));
     }
 
-    # Is there a reference file?
-    if (not -f $default_reference_filename) {
-        # Nope. Warn the User, but don't make a tragedy of it.
-        diag("No reference file found. All calls to is_referenced_ok WILL fail.");
-
-        return $reference = {};
-    }
-
-    return $reference = $serializer_load->($default_reference_filename);
+    return;
 } # }}}
 
+=head1 CUSTOM COMPARIZON ROUTINES
+
+For the moment, it's an undocumented, experimental feature. Use at Your own risk.
 
 =head1 TDD
 
@@ -437,6 +484,26 @@ they will be different each time You run the test. This will most likely create 
 =item Host-based data
 
 If Your test data contains some host-related data (URLs), tests will pass on Your host, but will probably fail on other machines.
+
+=back
+
+head1 KNOWN ISSUES / TODO
+
+=over
+
+=item Non unique result files
+
+Result files should be unique (add PID? Timestamp?), so it is possible to run the same test in two copies at a time.
+At the moment race conditions may happen. This does not seem to be a common use case, but still.
+
+Will be fixed in next (0.02) version.
+
+=item External tmp directory
+
+At the moment, result files are written in the same directory as tests, which may not always be writable by the test.
+This should be solved by using '/tmp', or any other User-supplied directory.
+
+Will be fixed in next (0.02) version.
 
 =back
 

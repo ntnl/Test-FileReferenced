@@ -2,6 +2,7 @@
 
 use strict; use warnings;
 
+use FindBin qw( $Bin );
 use Test::More tests => 1;
 
 require Test::FileReferenced;
@@ -9,6 +10,8 @@ require Test::FileReferenced;
 # Check if Test::FileReferenced displays correct prompt.
 
 our @diag_output;
+
+chdir $Bin .q{/../};
 
 Test::FileReferenced::is_referenced_ok("Foo", "Fake", sub { return; });
 

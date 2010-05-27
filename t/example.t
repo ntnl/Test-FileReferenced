@@ -2,6 +2,7 @@
 
 use strict; use warnings;
 
+use FindBin qw( $Bin );
 use Test::More tests => 5;
 use Test::FileReferenced;
 
@@ -55,7 +56,7 @@ is_referenced_in_file(
         bar => 'Bar',
         baz => 'Baz',
     },
-    'example-hash',
+    $Bin . '/example-hash', # <-- absolute paths work too :)
     'Hash in custom reference file',
 );
 

@@ -13,10 +13,10 @@ our @diag_output;
 
 chdir $Bin .q{/../};
 $ENV{'PATH'} = $Bin .q{/fake_bin},
-chmod 755, $Bin .q{/fake_bin/diff},
-chmod 755, $Bin .q{/fake_bin/kdiff},
+chmod 0755, $Bin . q{/fake_bin/diff};
+chmod 0755, $Bin . q{/fake_bin/kdiff};
 
-Test::FileReferenced::is_referenced_ok("Foo", "Fake", sub { warn "FAIL!"; return; });
+Test::FileReferenced::is_referenced_ok("Foo", "Fake", sub { return; });
 
 Test::FileReferenced::at_exit();
 
@@ -38,9 +38,6 @@ package Test::More;
 
 no warnings;
 sub diag { # {{{
-    print @_;
-    print "\n";
-
     return push @diag_output, @_;
 } # }}}
 

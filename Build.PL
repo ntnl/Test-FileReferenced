@@ -19,9 +19,13 @@ my $build = Module::Build->new (
     requires => {
         'perl' => '5.8.0',
 
+        'Cwd'        => '3.30',
         'Test::More' => '0.94',
         'FindBin'    => '1.47',
         'YAML::Any'  => '0.71',
+    },
+    build_requires => {
+        'Test::Exception' => '0.29',
     },
 
     # Play nice with friends ;)

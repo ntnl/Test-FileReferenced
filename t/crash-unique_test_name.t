@@ -9,6 +9,8 @@ use Test::FileReferenced;
 # Check if Test::FileReferenced is able to detect,
 # that a test name is not unique.
 
+$ENV{'FILE_REFERENCED_NO_PROMPT'} = 1;
+
 is_referenced_ok(
     {
         a => 'A',
@@ -25,7 +27,7 @@ throws_ok {
         },
         "This will pass", # <-- not really, actually ;) 
     );
-}  qr{is not unique}, "Doubled test name detected";
+}  qr{is not unique}s, "Doubled test name detected";
 
 is_referenced_ok(
     {

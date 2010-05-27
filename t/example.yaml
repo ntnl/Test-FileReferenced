@@ -5,7 +5,7 @@ Arrays can be referenced in files:
  - Bar
  - Baz
 Hashes can be referenced in files:
- foo: Foo
- bar: Bar
- baz: Baz
+  foo: Foo
+  bar: Bar
+  baz: Baz
  
