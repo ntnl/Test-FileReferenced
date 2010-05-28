@@ -6,4 +6,6 @@ MYMETA.yml
 _build/
 blib/
 cover_db/
-
+Test-FileReferenced-*.tar.gz
+Makefile.PL
+README

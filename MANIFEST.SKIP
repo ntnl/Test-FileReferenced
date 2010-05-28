@@ -72,6 +72,8 @@
 # Avoid archives of this distribution
 \bTest-FileReferenced-[\d\.\_]+
 
-.*.swp
-.*.swo
+\..*.swp
+\..*.swo
+
+t/.+-result.yaml
 

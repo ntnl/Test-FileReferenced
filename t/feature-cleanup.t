@@ -3,7 +3,7 @@
 use strict; use warnings;
 
 use FindBin qw( $Bin );
-use Test::More tests => 3;
+use Test::More tests => 2 + 2 + 1;
 use Test::Exception;
 use Test::FileReferenced;
 
@@ -11,9 +11,25 @@ use Test::FileReferenced;
 
 $ENV{'FILE_REFERENCED_NO_PROMPT'} = 1;
 
+# Create '-result' files, as if they ware left by previous run.
+# Their content does not actually matter, they may remain empty as well.
 my $fh;
 open($fh, q{>}, $Bin.q{/feature-cleanup-result.yaml}) or die("Unable to write '-result' file!");
+open($fh, q{>}, $Bin.q{/example-hash-result.yaml}) or die("Unable to write 'example-hash-result' file!");
 print $fh "Just a test\n";
+
+is_referenced_in_file(
+    {
+        bar => 'Bar',
+        baz => 'Baz',
+        foo => 'Foo',
+    },
+    'example-hash',
+    "This will pass using example-hash file",
+);
+
+is (-f $Bin.q{/example-hash-result.yaml}, undef, "Unneded example-hash-result file was removed.");
+
 
 is_referenced_ok(
     {

@@ -50,7 +50,7 @@ Test::FileReferenced - Test against reference data stored in file(s).
 =head1 DESCRIPTION
 
 Test::FileReferenced helps testing routines returning complex data structures.
-This is achieved by serializing test's output (by default using YAML::Syck),
+This is achieved by serializing test's output (using YAML::Any),
 and allowing the Developer to compare it with reference data.
 
 In case there are differences between reference and actual result,
@@ -90,12 +90,8 @@ Compare C<$data> with reference stored under key C<$name> in default reference f
 
 If C<$comparator> is a CODE reference, it is used to compare results. If this parameter is not given, Test::More::is_deeply is used.
 
-Parameters:
-$data (tested data, undef, scalar or reference)
-$name (unlike usual Test::* routines, it is mandatory)
-$comparator (optional)
-
 Returns:
+
 Value returned by comparizon routine. By default (when is_deeply is used)
 it will be C<1> if the test passed, and C<0> if it failed.
 
@@ -145,11 +141,18 @@ sub is_referenced_ok { # {{{
     return $status;
 } # }}}
 
-=item is_referenced_in_file ( $data, $name, $file_basename )
+=item is_referenced_in_file ( $data, $file_basename, $name, $comparator )
 
-Compare C<$data> with reference stored in custom file: F<$file_basename.yaml> (assuming the serializer is YAML::Syck).
+Compare C<$data> with reference stored in custom file: F<$file_basename.yaml> (assuming the serializer is YAML::Any).
 
 If C<$comparator> is a CODE reference, it is used to compare results. If this parameter is not given, Test::More::is_deeply is used.
+
+Both C<$name> and C<$comparator> are optional parameters.
+
+Returns:
+
+Value returned by comparizon routine. By default (when is_deeply is used)
+it will be C<1> if the test passed, and C<0> if it failed.
 
 =cut
 
@@ -180,10 +183,8 @@ sub is_referenced_in_file { # {{{
     if (not $status = $comparator->($tested_data, $reference_data, $test_name)) {
         $serializer_dump->($output_path, $tested_data);
 
-        $failure_count++;
-
         # Test failed, display prompt....
-        # W.I.P. (WIP!)
+        _display_failure_prompt($output_path, $reference_path);
     }
     else {
         # If there are output files from previous run - clear them up.
@@ -200,11 +201,36 @@ sub is_referenced_in_file { # {{{
 Changes default serializing functions to ones provided by the Developer. C<$extension> must also be provided, so Test::FileReferenced can
 automatically create the default reference file, if needed.
 
-You do not need to use this function, if You are happy with YAML::Syck usage.
+You do not need to use this function, if You are happy with YAML::Any usage.
+
+Returns: undef
 
 =cut
 
 sub set_serializer { # {{{
+    ( $serializer_ext, $serializer_load, $serializer_dump ) = @_;
+    
+    # Validate what was given to us.
+
+    if (not $serializer_ext) {
+        croak "Missing file extension!";
+    }
+
+    if (not $serializer_load) {
+        croak "Missing de-serializer!";
+    }
+    if (ref $serializer_load ne 'CODE') {
+        croak "De-serializer not a CODE-ref!";
+    }
+    
+    if (not $serializer_dump) {
+        croak "Missing serializer!";
+    }
+    if (ref $serializer_dump ne 'CODE') {
+        croak "Serializer not a CODE-ref!";
+    }
+
+    return;
 } # }}}
 
 =item at_exit ()
@@ -216,11 +242,7 @@ Nothing will be printed in this case.
 
 Normally this function does not need to be run explicitly, as Test::FileReferenced will run it from it's C<END {}> sections.
 
-Parameters:
-none
-
-Returns:
-undef
+Returns: undef
 
 =cut
 
@@ -233,7 +255,7 @@ sub at_exit { # {{{
     if ($failure_count > 0) {
         $serializer_dump->($default_results_filename, $output);
         
-        _display_failure_prompt();
+        _display_failure_prompt($default_results_filename, $default_reference_filename);
     }
     else {
         _clean_up();
@@ -272,16 +294,18 @@ sub _clean_up { # {{{
     return;
 }  # }}}
 
+=back
+
 =head1 REFERENCE FILES
 
-Reference files are data dumps using - by default - YAML::Syck.
+Reference files are data dumps using - by default - YAML::Any.
 
 =over
 
 =item Default reference file
 
-Default reference file contains data for C<is_referenced_ok> tests.
-Each test has it's own key in the file. For the following example test:
+Default reference file contains data for all C<is_referenced_ok> calls in the test.
+Each test case has it's own key in the file. For the following example test:
 
  is_referenced_ok(\%ENV, 'env');
  is_referenced_ok(\@INC, 'inc');
@@ -300,7 +324,7 @@ Each test has it's own key in the file. For the following example test:
    /usr/lib/perl5/5.10.1
 
 Name for the reference file is based on the tests's filename, with I<.t> replaced with extension native to the used dumper.
-Example: if default serializer (YAML::Syck) is used, F<foo/bar.t> will use F<foo/bar.yaml>.
+Example: if default serializer (YAML::Any) is used, F<foo/bar.t> will use F<foo/bar.yaml>.
 
 =cut
 
@@ -367,46 +391,48 @@ even if - for some reason - the END block does not run.
 =cut
 
 sub _display_failure_prompt { # {{{
+    my ( $results_filename, $reference_filename ) = @_;
+
     if ($ENV{'FILE_REFERENCED_NO_PROMPT'}) {
         return;
     }
-    
+
     # Try to make the paths a bit more Humar-readable.
     my $cwd = cwd();
-    
-    $default_reference_filename =~ s{^$cwd/*}{}s;
-    $default_results_filename   =~ s{^$cwd/*}{}s;
+
+    $results_filename   =~ s{^$cwd/*}{}s;
+    $reference_filename =~ s{^$cwd/*}{}s;
 
     # We basically have two use cases:
     #   1) reference exist, but there are changes.
     #   2) reference does not exist at all
-    if (-f $default_reference_filename) {
+    if (-f $reference_filename) {
         # First major use case: reference exist, but there are changes.
 
         my @shell_path = split /:/s, $ENV{'PATH'};
 
         diag("Resulting and reference files differ. To see differences run one of:");
-        diag(sprintf(q{%10s %s %s}, q{diff}, $default_results_filename, $default_reference_filename));
+        diag(sprintf(q{%10s %s %s}, q{diff}, $results_filename, $reference_filename));
         foreach my $diff_command (qw( vimdiff gvimdiff kdiff )) {
             foreach my $path (@shell_path) {
                 if (-x $path . q{/}. $diff_command) {
-                    diag(sprintf(q{%10s %s %s}, $diff_command, $default_results_filename, $default_reference_filename));
+                    diag(sprintf(q{%10s %s %s}, $diff_command, $results_filename, $reference_filename));
                     last;
                 }
             }
         }
         diag("\n");
         diag("If the differences ware intended, reference data can be updated by running:");
-        diag(sprintf(q{%10s %s %s}, q{mv}, $default_results_filename, $default_reference_filename));
+        diag(sprintf(q{%10s %s %s}, q{mv}, $results_filename, $reference_filename));
     }
     else {
         # Second major use case: reference does not exist at all.
         diag("No reference file found. It'a a good idea to create one from scratch manually.");
         diag("To inspect current results run:");
-        diag(sprintf(q{%10s %s %s}, "cat", $default_results_filename));
+        diag(sprintf(q{%10s %s %s}, "cat", $results_filename));
         diag("\n");
         diag("If You trust Your test output, You can use it to initialize deference file, by running:");
-        diag(sprintf(q{%10s %s %s}, q{mv}, $default_results_filename, $default_reference_filename));
+        diag(sprintf(q{%10s %s %s}, q{mv}, $results_filename, $reference_filename));
     }
 
     return;
@@ -436,7 +462,7 @@ To initialize the reference file(s), run a script similar to the example bellow:
 
  is_referenced_in_file(undef, "foo", "Second test");
 
-This example will create an empty default reference file for the test, and one ('foo.yaml') custom reference file.
+This will allow You to create an empty default reference file for the test, and one ('foo.yaml') custom reference file.
 
 =item Fill reference files
 
@@ -459,8 +485,6 @@ At this point, test still fails. Tested subroutines have to be properly implemen
 1;
 
 __END__
-
-=back
 
 =head1 CAVEATS
 
@@ -487,11 +511,11 @@ If Your test data contains some host-related data (URLs), tests will pass on You
 
 =back
 
-head1 KNOWN ISSUES / TODO
+=head1 TODO
 
 =over
 
-=item Non unique result files
+=item Make result files as unique as possible
 
 Result files should be unique (add PID? Timestamp?), so it is possible to run the same test in two copies at a time.
 At the moment race conditions may happen. This does not seem to be a common use case, but still.
@@ -500,7 +524,7 @@ Will be fixed in next (0.02) version.
 
 =item External tmp directory
 
-At the moment, result files are written in the same directory as tests, which may not always be writable by the test.
+At the moment, result files are written in the same directory as tests, which may not always be writable.
 This should be solved by using '/tmp', or any other User-supplied directory.
 
 Will be fixed in next (0.02) version.
@@ -511,9 +535,9 @@ Will be fixed in next (0.02) version.
 
 Test::More
 
-Test::FileReferenced::Deep (WIP)
+Test::FileReferenced::Deep (WIP!)
 
-Test::FileReferenced::Framework (WIP)
+Test::FileReferenced::Framework (WIP!)
 
 =head1 COPYRIGHT
 
