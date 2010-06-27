@@ -3,7 +3,7 @@
 use strict; use warnings;
 
 use FindBin qw( $Bin );
-use Test::More tests => 5;
+use Test::More tests => 6;
 use Test::FileReferenced;
 
 # This is a example/reference test.
@@ -32,6 +32,10 @@ is_referenced_ok(
         baz => 'Baz',
     },
     'Hashes can be referenced in files',
+);
+is_referenced_ok(
+    undef,
+    'Undef can be referenced in files',
 );
 
 # Example 2:

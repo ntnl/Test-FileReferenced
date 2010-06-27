@@ -11,10 +11,10 @@ require Test::FileReferenced;
 
 our @diag_output;
 
-chdir $Bin .q{/../};
-$ENV{'PATH'} = $Bin .q{/fake_bin},
-chmod 0755, $Bin . q{/fake_bin/diff};
-chmod 0755, $Bin . q{/fake_bin/kdiff};
+chdir File::Spec->catdir($Bin, q{..});
+$ENV{'PATH'} = File::Spec->catdir($Bin, q{fake_bin});
+chmod 0755, File::Spec->catfile($Bin, q{fake_bin}, q{diff});
+chmod 0755, File::Spec->catfile($Bin, q{fake_bin}, q{kdiff});
 
 Test::FileReferenced::is_referenced_in_file("Foo", 'example-hash', "Fake", sub { return; });
 
@@ -24,11 +24,11 @@ is_deeply(
     \@diag_output,
     [
         q{Resulting and reference files differ. To see differences run one of:},
-        q{      diff t/example-hash-result.yaml t/example-hash.yaml},
-        q{     kdiff t/example-hash-result.yaml t/example-hash.yaml},
+        q{      diff t#example-hash-result.yaml t#example-hash.yaml},
+        q{     kdiff t#example-hash-result.yaml t#example-hash.yaml},
         qq{\n},
         q{If the differences ware intended, reference data can be updated by running:},
-        q{        mv t/example-hash-result.yaml t/example-hash.yaml},
+        q{        mv t#example-hash-result.yaml t#example-hash.yaml},
     ],
     "Prompt OK"
 );
@@ -38,7 +38,9 @@ package Test::More;
 
 no warnings;
 sub diag { # {{{
-    return push @diag_output, @_;
+    my ( $msg ) = @_;
+    $msg =~ s{[\/\\]}{#}sg; # Poor-man's platform independence.
+    return push @diag_output, $msg;
 } # }}}
 
 # vim: fdm=marker

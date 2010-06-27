@@ -24,6 +24,8 @@ use Carp qw( croak );
 use Cwd qw( cwd );
 use English qw( -no_match_vars );
 use FindBin qw( $Bin );
+use File::Basename;
+use File::Spec;
 use Test::More;
 use YAML::Any qw( LoadFile DumpFile );
 
@@ -92,7 +94,7 @@ If C<$comparator> is a CODE reference, it is used to compare results. If this pa
 
 Returns:
 
-Value returned by comparizon routine. By default (when is_deeply is used)
+Value returned by comparison routine. By default (when is_deeply is used)
 it will be C<1> if the test passed, and C<0> if it failed.
 
 =cut
@@ -110,12 +112,19 @@ sub is_referenced_ok { # {{{
         croak("Test name missing, but it is mandatory!");
     }
 
+    # Check if the test name is unique.
+    if ($output->{$test_name}) {
+        croak("Test name: '$test_name' is not unique.");
+    }
+
     if (not $comparator) {
         $comparator = \&is_deeply;
     }
 
+    $output->{$test_name} = $tested_data;
+
     # Check if We have a reference data for given test.
-    if (not $reference->{$test_name}) {
+    if (not exists $reference->{$test_name}) {
         diag("No reference for test '$test_name' found. Test will fail.");
 
         # Fixme: provide some more detailed information, what happened,
@@ -125,13 +134,6 @@ sub is_referenced_ok { # {{{
 
         return fail($test_name);
     }
-
-    # Check if the test name is unique.
-    if ($output->{$test_name}) {
-        croak("Test name: '$test_name' is not unique.");
-    }
-
-    $output->{$test_name} = $tested_data;
 
     my $status;
     if (not $status = $comparator->($tested_data, $reference->{$test_name}, $test_name)) {
@@ -151,7 +153,7 @@ Both C<$name> and C<$comparator> are optional parameters.
 
 Returns:
 
-Value returned by comparizon routine. By default (when is_deeply is used)
+Value returned by comparison routine. By default (when is_deeply is used)
 it will be C<1> if the test passed, and C<0> if it failed.
 
 =cut
@@ -167,21 +169,21 @@ sub is_referenced_in_file { # {{{
 
     # Construct path to reference file.
     my ($reference_path, $output_path );
-    if ($reference_filename =~ m{^[\\\/]}s) {
+    if (File::Spec->file_name_is_absolute($reference_filename)) {
         $reference_path = $reference_filename . q{.}        . $serializer_ext;
         $output_path    = $reference_filename . q{-result.} . $serializer_ext;
     }
     else {
-        $reference_path = $Bin . q{/} . $reference_filename . q{.}        . $serializer_ext;
-        $output_path    = $Bin . q{/} . $reference_filename . q{-result.} . $serializer_ext;
+        $reference_path = File::Spec->catfile($Bin, $reference_filename . q{.}        . $serializer_ext);
+        $output_path    = File::Spec->catfile($Bin, $reference_filename . q{-result.} . $serializer_ext);
     }
 
     # Load reference data.
-    my $reference_data = $serializer_load->($reference_path);
+    my $reference_data = _Load($reference_path);
 
     my $status;
     if (not $status = $comparator->($tested_data, $reference_data, $test_name)) {
-        $serializer_dump->($output_path, $tested_data);
+        _Dump($output_path, $tested_data);
 
         # Test failed, display prompt....
         _display_failure_prompt($output_path, $reference_path);
@@ -253,7 +255,7 @@ sub at_exit { # {{{
 
     # Ware there any failures?
     if ($failure_count > 0) {
-        $serializer_dump->($default_results_filename, $output);
+        _Dump($default_results_filename, $output);
         
         _display_failure_prompt($default_results_filename, $default_reference_filename);
     }
@@ -278,10 +280,13 @@ sub _init_if_you_need { # {{{
     }
 
     # Prepare basename for the default files:
-    my ( $basename ) = ( $PROGRAM_NAME =~ m{([^\/\\]+?)\..*$}s );
+    my $basename = basename($PROGRAM_NAME, q{.t});
 
-    $default_reference_filename = $Bin . q{/} . $basename . q{.} . $serializer_ext;
-    $default_results_filename   = $Bin . q{/} . $basename . q{-result.} . $serializer_ext;
+    $default_reference_filename = File::Spec->catfile($Bin, $basename . q{.} . $serializer_ext);
+    $default_results_filename   = File::Spec->catfile($Bin, $basename . q{-result.} . $serializer_ext);
+    
+#    warn "Ref: ". $default_reference_filename;
+#    warn "Res: ". $default_results_filename;
 
     return;
 } # }}}
@@ -342,7 +347,7 @@ sub _load_reference_if_you_need { # {{{
         return $reference = {};
     }
 
-    return $reference = $serializer_load->($default_reference_filename);
+    return $reference = _Load($default_reference_filename);
 } # }}}
 
 =item Custom reference files
@@ -400,8 +405,8 @@ sub _display_failure_prompt { # {{{
     # Try to make the paths a bit more Humar-readable.
     my $cwd = cwd();
 
-    $results_filename   =~ s{^$cwd/*}{}s;
-    $reference_filename =~ s{^$cwd/*}{}s;
+    $results_filename   = File::Spec->abs2rel($results_filename, $cwd);
+    $reference_filename = File::Spec->abs2rel($reference_filename, $cwd);
 
     # We basically have two use cases:
     #   1) reference exist, but there are changes.
@@ -409,13 +414,13 @@ sub _display_failure_prompt { # {{{
     if (-f $reference_filename) {
         # First major use case: reference exist, but there are changes.
 
-        my @shell_path = split /:/s, $ENV{'PATH'};
+        my @shell_path = File::Spec->path();
 
         diag("Resulting and reference files differ. To see differences run one of:");
         diag(sprintf(q{%10s %s %s}, q{diff}, $results_filename, $reference_filename));
         foreach my $diff_command (qw( vimdiff gvimdiff kdiff )) {
             foreach my $path (@shell_path) {
-                if (-x $path . q{/}. $diff_command) {
+                if (-x File::Spec->catfile($path, $diff_command)) {
                     diag(sprintf(q{%10s %s %s}, $diff_command, $results_filename, $reference_filename));
                     last;
                 }
@@ -438,7 +443,35 @@ sub _display_failure_prompt { # {{{
     return;
 } # }}}
 
-=head1 CUSTOM COMPARIZON ROUTINES
+# ToDo: describe custom serializer/deserializer usage.
+
+sub _Load { # {{{
+    my ( $path ) = @_;
+
+    my $data = eval {
+        return $serializer_load->($path);
+    };
+    if ($EVAL_ERROR) {
+        croak("De-serializer error!\nUnable to load from:\n\t" . $path . "\nEval error:\n" . $EVAL_ERROR );
+    }
+
+    return $data;
+} # }}}
+
+sub _Dump { # {{{
+    my ( $path, $data ) = @_;
+
+    eval {
+        $serializer_dump->($path, $data);
+    };
+    if ($EVAL_ERROR) {
+        croak("Serializer error!\nUnable to dump to:\n\t" . $path . "\nEval error:\n" . $EVAL_ERROR );
+    }
+
+    return $data;
+} # }}}
+
+=head1 CUSTOM COMPARISON ROUTINES
 
 For the moment, it's an undocumented, experimental feature. Use at Your own risk.
 
@@ -528,6 +561,14 @@ At the moment, result files are written in the same directory as tests, which ma
 This should be solved by using '/tmp', or any other User-supplied directory.
 
 Will be fixed in next (0.02) version.
+
+=item Propose better commands
+
+Currently, Test::FileReferenced assumes that the User has Unix-like commands, like F<diff>, F<mv> and F<cat>.
+
+On systems, that do not have them, module should work fins, yet the usefulness of the prompt will be reduced.
+
+I do not know how (if) this is important - if You need this to be improved, please let me know (patches welcomed).
 
 =back
 
