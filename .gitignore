@@ -7,5 +7,6 @@ _build/
 blib/
 cover_db/
 Test-FileReferenced-*.tar.gz
+Test-FileReferenced-*/
 Makefile.PL
 README

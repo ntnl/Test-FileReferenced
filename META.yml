@@ -16,7 +16,7 @@ name: Test-FileReferenced
 provides:
   Test::FileReferenced:
     file: lib/Test/FileReferenced.pm
-    version: 0.01
+    version: 0.02
 requires:
   Cwd: 3.2701
   File::Basename: 2.74
@@ -27,4 +27,4 @@ requires:
   perl: v5.8.0
 resources:
   license: http://dev.perl.org/licenses/
-version: 0.01
+version: 0.02

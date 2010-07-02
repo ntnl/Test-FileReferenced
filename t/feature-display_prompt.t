@@ -3,9 +3,15 @@
 use strict; use warnings;
 
 use File::Spec;
+use English qw( -no_match_vars );
 use FindBin qw( $Bin );
-use Test::More tests => 2;
+use Test::More;
 use YAML::Any qw( LoadFile );
+
+if ($OSNAME =~ m/MSWin/) {
+    plan skip_all => 'MSWin32 not supported (Fixme!)';
+}
+plan tests => 2;
 
 require Test::FileReferenced;
 

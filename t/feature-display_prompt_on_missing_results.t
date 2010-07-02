@@ -24,7 +24,7 @@ is_deeply(
         q{No reference for test 'Fake' found. Test will fail.},
         q{No reference file found. It'a a good idea to create one from scratch manually.},
         q{To inspect current results run:},
-        q{       cat t#feature-display_prompt_on_missing_results-result.yaml },
+        q{       cat t#feature-display_prompt_on_missing_results-result.yaml},
         qq{\n},
         q{If You trust Your test output, You can use it to initialize deference file, by running:},
         q{        mv t#feature-display_prompt_on_missing_results-result.yaml t#feature-display_prompt_on_missing_results.yaml},

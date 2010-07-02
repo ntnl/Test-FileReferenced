@@ -10,7 +10,7 @@ use 5.005003;
 use strict;
 use base qw( Exporter );
 
-our $VERSION = '0.01';
+our $VERSION = '0.02';
 our @EXPORT = qw(
     is_referenced_ok
     is_referenced_in_file
@@ -292,7 +292,7 @@ sub _init_if_you_need { # {{{
 } # }}}
 
 sub _clean_up { # {{{
-    if (-f $default_results_filename) {
+    if ($default_results_filename and -f $default_results_filename) {
         unlink $default_results_filename;
     }
 
@@ -434,7 +434,7 @@ sub _display_failure_prompt { # {{{
         # Second major use case: reference does not exist at all.
         diag("No reference file found. It'a a good idea to create one from scratch manually.");
         diag("To inspect current results run:");
-        diag(sprintf(q{%10s %s %s}, "cat", $results_filename));
+        diag(sprintf(q{%10s %s}, "cat", $results_filename));
         diag("\n");
         diag("If You trust Your test output, You can use it to initialize deference file, by running:");
         diag(sprintf(q{%10s %s %s}, q{mv}, $results_filename, $reference_filename));

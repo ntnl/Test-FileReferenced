@@ -2,8 +2,14 @@
 
 use strict; use warnings;
 
+use English qw( -no_match_vars );
 use FindBin qw( $Bin );
-use Test::More tests => 1;
+use Test::More;
+
+if ($OSNAME =~ m/MSWin/) {
+    plan skip_all => 'MSWin32 not supported (Fixme!)';
+}
+plan tests => 1;
 
 require Test::FileReferenced;
 
